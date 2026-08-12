@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="tr">
-
 <head>
 
 <meta charset="UTF-8">
@@ -10,11 +9,7 @@
 
 <title>BLINK TEST</title>
 
-
-<!-- MediaPipe Face Mesh -->
-
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
-
 
 <style>
 
@@ -24,29 +19,19 @@
 
 html,
 body {
-
     margin: 0;
-
     width: 100%;
     height: 100%;
-
-    background: #000;
-
     overflow: hidden;
 
-    font-family: monospace;
-
+    background: #000;
     color: #00ff88;
 
+    font-family: monospace;
 }
 
-
-/* KAMERA */
-
 #camera {
-
     position: fixed;
-
     inset: 0;
 
     width: 100%;
@@ -55,22 +40,15 @@ body {
     object-fit: cover;
 
     transform: scaleX(-1);
-
 }
 
-
-/* KARARTMA */
-
 #overlay {
-
     position: fixed;
-
     inset: 0;
 
     pointer-events: none;
 
     background:
-
         radial-gradient(
             ellipse at center,
             transparent 40%,
@@ -78,16 +56,10 @@ body {
         );
 
     z-index: 2;
-
 }
 
-
-/* CRT ÇİZGİLERİ */
-
 #scanlines {
-
     position: fixed;
-
     inset: 0;
 
     pointer-events: none;
@@ -95,7 +67,6 @@ body {
     z-index: 3;
 
     background:
-
         repeating-linear-gradient(
             to bottom,
             rgba(255,255,255,.045) 0px,
@@ -103,14 +74,9 @@ body {
             transparent 2px,
             transparent 4px
         );
-
 }
 
-
-/* ÜST BİLGİ */
-
 #status {
-
     position: fixed;
 
     top: 15px;
@@ -126,14 +92,9 @@ body {
 
     box-shadow:
         0 0 10px #00ff88;
-
 }
 
-
-/* GÖZ DURUMU */
-
 #eyeStatus {
-
     position: fixed;
 
     bottom: 20px;
@@ -154,31 +115,59 @@ body {
     box-shadow:
         0 0 15px #00ff88;
 
+    text-align: center;
 }
 
+#calibration {
+    position: fixed;
 
-/* BLINK */
+    top: 50%;
+    left: 50%;
 
-.blink {
+    transform: translate(-50%, -50%);
 
-    color: red !important;
+    z-index: 15;
 
-    border-color: red !important;
+    width: 85%;
+
+    max-width: 400px;
+
+    padding: 20px;
+
+    background: rgba(0,0,0,.85);
+
+    border: 1px solid #00ff88;
 
     box-shadow:
-        0 0 15px red,
-        0 0 40px red !important;
+        0 0 25px #00ff88;
 
-    text-shadow:
-        0 0 10px red;
+    text-align: center;
 
+    display: none;
 }
 
+#progressOuter {
+    width: 100%;
 
-/* BUTON */
+    height: 10px;
+
+    border: 1px solid #00ff88;
+
+    margin-top: 15px;
+}
+
+#progressInner {
+    width: 0%;
+
+    height: 100%;
+
+    background: #00ff88;
+
+    box-shadow:
+        0 0 10px #00ff88;
+}
 
 #start {
-
     position: fixed;
 
     left: 50%;
@@ -202,28 +191,30 @@ body {
 
     box-shadow:
         0 0 20px #00ff88;
-
 }
 
-
-#start:active {
-
+button:active {
     background: #00ff88;
-
     color: #000;
-
 }
 
+.blink {
+    color: red !important;
 
-/* GLITCH */
+    border-color: red !important;
+
+    box-shadow:
+        0 0 15px red,
+        0 0 40px red !important;
+
+    text-shadow:
+        0 0 10px red;
+}
 
 .glitch {
-
     animation:
         glitch .08s linear 3;
-
 }
-
 
 @keyframes glitch {
 
@@ -246,13 +237,11 @@ body {
     100% {
         transform: translate(0);
     }
-
 }
 
 </style>
 
 </head>
-
 
 <body>
 
@@ -270,21 +259,31 @@ body {
 
 
 <div id="status">
-
     SYSTEM: OFFLINE
-
 </div>
 
 
 <div id="eyeStatus">
-
     CAMERA OFF
+</div>
+
+
+<div id="calibration">
+
+    <div id="calibrationText">
+        CALIBRATING...
+    </div>
+
+    <div id="progressOuter">
+        <div id="progressInner"></div>
+    </div>
 
 </div>
 
 
-<button id="start"
-        onclick="startTest()">
+<button
+    id="start"
+    onclick="startTest()">
 
     START BLINK TEST
 
@@ -294,25 +293,35 @@ body {
 <script>
 
 
-/* =========================
-   DEĞİŞKENLER
-========================= */
+/* =================================
+   ELEMANLAR
+================================= */
 
 const video =
     document.getElementById("camera");
 
-
 const status =
     document.getElementById("status");
-
 
 const eyeStatus =
     document.getElementById("eyeStatus");
 
-
 const startButton =
     document.getElementById("start");
 
+const calibration =
+    document.getElementById("calibration");
+
+const calibrationText =
+    document.getElementById("calibrationText");
+
+const progressInner =
+    document.getElementById("progressInner");
+
+
+/* =================================
+   DEĞİŞKENLER
+================================= */
 
 let cameraStream = null;
 
@@ -320,16 +329,48 @@ let faceMesh = null;
 
 let processing = false;
 
-let eyesClosed = false;
-
 let blinkCount = 0;
+
+let eyesClosed = false;
 
 let closedSince = 0;
 
 
-/* =========================
+/*
+   KALİBRASYON
+*/
+
+let calibrating = false;
+
+let calibrationValues = [];
+
+let calibrationStart = 0;
+
+const CALIBRATION_TIME = 3000;
+
+
+/*
+   Kişinin normal göz açıklığı.
+*/
+
+let normalEyeRatio = 0;
+
+
+/*
+   KAPANMA / AÇILMA EŞİKLERİ
+
+   Bunlar normalEyeRatio'dan
+   otomatik hesaplanacak.
+*/
+
+let closeThreshold = 0;
+
+let openThreshold = 0;
+
+
+/* =================================
    MESAFE
-========================= */
+================================= */
 
 function distance(a, b) {
 
@@ -340,16 +381,14 @@ function distance(a, b) {
         a.y - b.y;
 
     return Math.sqrt(
-        x * x +
-        y * y
+        x * x + y * y
     );
-
 }
 
 
-/* =========================
-   GÖZ AÇIKLIK ORANI
-========================= */
+/* =================================
+   GÖZ ORANI
+================================= */
 
 function eyeRatio(
     top,
@@ -369,31 +408,25 @@ function eyeRatio(
     const horizontal =
         distance(left, right);
 
+    if (horizontal === 0) {
+        return 0;
+    }
+
     return (
         vertical1 +
         vertical2
     ) / (
         2 * horizontal
     );
-
 }
 
 
-/* =========================
-   BLINK ALGILA
-========================= */
+/* =================================
+   İKİ GÖZÜN ORTALAMASI
+================================= */
 
-function checkBlink(landmarks) {
+function getEyeRatio(landmarks) {
 
-
-    /*
-       SOL GÖZ
-
-       33  = dış köşe
-       133 = iç köşe
-       160 / 144
-       158 / 153
-    */
 
     const leftEye =
         eyeRatio(
@@ -410,15 +443,6 @@ function checkBlink(landmarks) {
         );
 
 
-    /*
-       SAĞ GÖZ
-
-       362 = iç köşe
-       263 = dış köşe
-       385 / 380
-       387 / 373
-    */
-
     const rightEye =
         eyeRatio(
 
@@ -434,126 +458,293 @@ function checkBlink(landmarks) {
         );
 
 
-    const average =
-        (leftEye + rightEye) / 2;
+    return (
+        leftEye +
+        rightEye
+    ) / 2;
+}
 
 
-    /*
-       GÖZ AÇIK
-    */
+/* =================================
+   KALİBRASYON
+================================= */
 
-    if (average > 0.22) {
+function calibrate(ratio) {
 
-        eyeStatus.innerText =
-            "EYES OPEN";
-
-        eyeStatus.classList.remove(
-            "blink"
-        );
-
-
-        /*
-           Önceden kapalıysa
-           ve şimdi açıldıysa
-           = BLINK
-        */
-
-        if (eyesClosed) {
-
-            const duration =
-                Date.now() -
-                closedSince;
-
-
-            /*
-               Çok uzun kapalı kalırsa
-               blink sayma.
-
-               Normal göz kırpma
-               yaklaşık kısa süreli.
-            */
-
-            if (
-                duration >= 80 &&
-                duration < 1200
-            ) {
-
-                blinkCount++;
-
-
-                eyeStatus.innerText =
-                    "BLINK DETECTED";
-
-
-                eyeStatus.classList.add(
-                    "blink"
-                );
-
-
-                document.body
-                    .classList.add(
-                        "glitch"
-                    );
-
-
-                setTimeout(() => {
-
-                    document.body
-                        .classList.remove(
-                            "glitch"
-                        );
-
-                }, 300);
-
-
-                status.innerText =
-                    "SYSTEM: ONLINE\n" +
-                    "BLINKS: " +
-                    blinkCount;
-
-            }
-
-
-            eyesClosed = false;
-
-        }
-
+    if (!calibrating) {
         return;
-
     }
 
 
     /*
-       GÖZ KAPALI
+       Gözleri normal şekilde açık
+       tutarken değerleri topluyoruz.
     */
 
-    if (average < 0.20) {
+    calibrationValues.push(ratio);
 
-        eyeStatus.innerText =
-            "EYES CLOSED";
 
-        eyeStatus.classList.add(
-            "blink"
+    const elapsed =
+        Date.now() -
+        calibrationStart;
+
+
+    const progress =
+        Math.min(
+            elapsed /
+            CALIBRATION_TIME,
+            1
         );
 
 
-        if (!eyesClosed) {
+    progressInner.style.width =
+        (progress * 100) + "%";
+
+
+    calibrationText.innerText =
+        "KEEP YOUR EYES OPEN\n\n" +
+        "CALIBRATING " +
+        Math.round(progress * 100) +
+        "%";
+
+
+    if (
+        elapsed >=
+        CALIBRATION_TIME
+    ) {
+
+        finishCalibration();
+
+    }
+}
+
+
+/* =================================
+   KALİBRASYONU BİTİR
+================================= */
+
+function finishCalibration() {
+
+    if (
+        calibrationValues.length === 0
+    ) {
+        return;
+    }
+
+
+    /*
+       Ortalama yerine medyan
+       kullanıyoruz.
+
+       Böylece kalibrasyon sırasında
+       yanlışlıkla kırpman sonucu
+       daha az etkilenir.
+    */
+
+    const sorted =
+        [...calibrationValues]
+            .sort(
+                (a,b) => a-b
+            );
+
+
+    const middle =
+        Math.floor(
+            sorted.length / 2
+        );
+
+
+    normalEyeRatio =
+        sorted[middle];
+
+
+    /*
+       Normal açıklığın yaklaşık
+       %55 altına düşerse kapalı.
+
+       Açılma eşiğini biraz daha
+       yukarı koyuyoruz.
+    */
+
+    closeThreshold =
+        normalEyeRatio * 0.55;
+
+    openThreshold =
+        normalEyeRatio * 0.72;
+
+
+    calibrating = false;
+
+    calibration.style.display =
+        "none";
+
+
+    status.innerText =
+        "SYSTEM: ONLINE\n" +
+        "CALIBRATED";
+
+    eyeStatus.innerText =
+        "EYES OPEN";
+
+
+    console.log(
+        "Normal:",
+        normalEyeRatio
+    );
+
+    console.log(
+        "Close:",
+        closeThreshold
+    );
+
+    console.log(
+        "Open:",
+        openThreshold
+    );
+}
+
+
+/* =================================
+   BLINK
+================================= */
+
+function checkBlink(ratio) {
+
+
+    /*
+       KALİBRASYON DEVAM EDİYORSA
+    */
+
+    if (calibrating) {
+
+        calibrate(ratio);
+
+        return;
+    }
+
+
+    /*
+       KALİBRASYON TAMAMLANMAMIŞSA
+    */
+
+    if (
+        normalEyeRatio === 0
+    ) {
+        return;
+    }
+
+
+    /*
+       GÖZLER AÇIKKEN
+    */
+
+    if (!eyesClosed) {
+
+        if (
+            ratio <
+            closeThreshold
+        ) {
 
             eyesClosed = true;
 
             closedSince =
                 Date.now();
 
+
+            eyeStatus.innerText =
+                "EYES CLOSED";
+
+            eyeStatus.classList.add(
+                "blink"
+            );
         }
 
+        else {
+
+            eyeStatus.innerText =
+                "EYES OPEN";
+
+            eyeStatus.classList.remove(
+                "blink"
+            );
+        }
+
+        return;
     }
 
+
+    /*
+       GÖZLER KAPALIYKEN
+       tekrar açılmasını bekle
+    */
+
+    if (
+        ratio >
+        openThreshold
+    ) {
+
+        const duration =
+            Date.now() -
+            closedSince;
+
+
+        /*
+           Normal kısa kapanma
+           = BLINK
+        */
+
+        if (
+            duration >= 80 &&
+            duration < 1200
+        ) {
+
+            blinkCount++;
+
+
+            eyeStatus.innerText =
+                "BLINK DETECTED";
+
+
+            eyeStatus.classList.add(
+                "blink"
+            );
+
+
+            document.body
+                .classList.add(
+                    "glitch"
+                );
+
+
+            setTimeout(() => {
+
+                document.body
+                    .classList.remove(
+                        "glitch"
+                    );
+
+                eyeStatus.classList.remove(
+                    "blink"
+                );
+
+            }, 400);
+
+
+            status.innerText =
+                "SYSTEM: ONLINE\n" +
+                "BLINKS: " +
+                blinkCount;
+        }
+
+
+        eyesClosed = false;
+    }
 }
 
 
-/* =========================
+/* =================================
    MEDIAPIPE
-========================= */
+================================= */
 
 function setupFaceMesh() {
 
@@ -568,7 +759,6 @@ function setupFaceMesh() {
                     "https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/" +
                     file
                 );
-
             }
 
         });
@@ -588,13 +778,25 @@ function setupFaceMesh() {
 
 
     faceMesh.onResults(
-
         results => {
+
 
             if (
                 results.multiFaceLandmarks &&
                 results.multiFaceLandmarks.length > 0
             ) {
+
+
+                const landmarks =
+                    results
+                        .multiFaceLandmarks[0];
+
+
+                const ratio =
+                    getEyeRatio(
+                        landmarks
+                    );
+
 
                 status.innerText =
                     "SYSTEM: ONLINE\n" +
@@ -603,10 +805,8 @@ function setupFaceMesh() {
                     blinkCount;
 
 
-                checkBlink(
-                    results
-                        .multiFaceLandmarks[0]
-                );
+                checkBlink(ratio);
+
 
             }
 
@@ -616,21 +816,22 @@ function setupFaceMesh() {
                     "SYSTEM: ONLINE\n" +
                     "FACE: NOT FOUND";
 
-                eyeStatus.innerText =
-                    "NO FACE";
 
+                if (!calibrating) {
+
+                    eyeStatus.innerText =
+                        "NO FACE";
+
+                }
             }
-
         }
-
     );
-
 }
 
 
-/* =========================
+/* =================================
    KAMERA
-========================= */
+================================= */
 
 async function startCamera() {
 
@@ -678,18 +879,18 @@ async function startCamera() {
             "CAMERA ERROR:\n" +
             error.name;
 
+
         console.error(error);
 
+
         return false;
-
     }
-
 }
 
 
-/* =========================
-   FRAME DÖNGÜSÜ
-========================= */
+/* =================================
+   KAMERA İŞLEME
+================================= */
 
 async function processCamera() {
 
@@ -703,13 +904,13 @@ async function processCamera() {
         );
 
         return;
-
     }
 
 
     if (!processing) {
 
         processing = true;
+
 
         try {
 
@@ -725,21 +926,54 @@ async function processCamera() {
 
         }
 
-        processing = false;
 
+        processing = false;
     }
 
 
     requestAnimationFrame(
         processCamera
     );
-
 }
 
 
-/* =========================
+/* =================================
+   KALİBRASYONU BAŞLAT
+================================= */
+
+function startCalibration() {
+
+    calibrationValues = [];
+
+    normalEyeRatio = 0;
+
+    closeThreshold = 0;
+
+    openThreshold = 0;
+
+    calibrating = true;
+
+    calibrationStart =
+        Date.now();
+
+
+    calibration.style.display =
+        "block";
+
+
+    progressInner.style.width =
+        "0%";
+
+
+    calibrationText.innerText =
+        "KEEP YOUR EYES OPEN\n\n" +
+        "CALIBRATING 0%";
+}
+
+
+/* =================================
    BAŞLAT
-========================= */
+================================= */
 
 async function startTest() {
 
@@ -768,7 +1002,6 @@ async function startTest() {
             "CAMERA FAILED";
 
         return;
-
     }
 
 
@@ -788,20 +1021,13 @@ async function startTest() {
     );
 
 
-    status.innerText =
-        "SYSTEM: ONLINE";
-
-
-    eyeStatus.innerText =
-        "LOOK AT CAMERA";
+    startCalibration();
 
 
     processCamera();
-
 }
 
 </script>
 
 </body>
-
-</html>
+      </html>
