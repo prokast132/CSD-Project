@@ -1,134 +1,807 @@
 <!DOCTYPE html>
 <html lang="tr">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Kamera Testi</title>
+<meta charset="UTF-8">
 
-    <style>
-        body {
-            background: black;
-            color: #00ff88;
-            font-family: monospace;
-            text-align: center;
-            padding: 20px;
-        }
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0">
 
-        button {
-            padding: 15px 25px;
-            margin: 20px;
-            background: black;
-            color: #00ff88;
-            border: 1px solid #00ff88;
-            font-family: monospace;
-            font-size: 18px;
-        }
+<title>BLINK TEST</title>
 
-        video {
-            width: 100%;
-            max-width: 500px;
-            margin-top: 20px;
-            display: none;
-        }
 
-        #result {
-            white-space: pre-wrap;
-            text-align: left;
-        }
-    </style>
+<!-- MediaPipe Face Mesh -->
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+
+
+<style>
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+
+    margin: 0;
+
+    width: 100%;
+    height: 100%;
+
+    background: #000;
+
+    overflow: hidden;
+
+    font-family: monospace;
+
+    color: #00ff88;
+
+}
+
+
+/* KAMERA */
+
+#camera {
+
+    position: fixed;
+
+    inset: 0;
+
+    width: 100%;
+    height: 100%;
+
+    object-fit: cover;
+
+    transform: scaleX(-1);
+
+}
+
+
+/* KARARTMA */
+
+#overlay {
+
+    position: fixed;
+
+    inset: 0;
+
+    pointer-events: none;
+
+    background:
+
+        radial-gradient(
+            ellipse at center,
+            transparent 40%,
+            rgba(0,0,0,.75) 100%
+        );
+
+    z-index: 2;
+
+}
+
+
+/* CRT ÇİZGİLERİ */
+
+#scanlines {
+
+    position: fixed;
+
+    inset: 0;
+
+    pointer-events: none;
+
+    z-index: 3;
+
+    background:
+
+        repeating-linear-gradient(
+            to bottom,
+            rgba(255,255,255,.045) 0px,
+            rgba(255,255,255,.045) 1px,
+            transparent 2px,
+            transparent 4px
+        );
+
+}
+
+
+/* ÜST BİLGİ */
+
+#status {
+
+    position: fixed;
+
+    top: 15px;
+    left: 15px;
+
+    z-index: 10;
+
+    padding: 10px;
+
+    border: 1px solid #00ff88;
+
+    background: rgba(0,0,0,.7);
+
+    box-shadow:
+        0 0 10px #00ff88;
+
+}
+
+
+/* GÖZ DURUMU */
+
+#eyeStatus {
+
+    position: fixed;
+
+    bottom: 20px;
+    left: 50%;
+
+    transform: translateX(-50%);
+
+    z-index: 10;
+
+    font-size: 22px;
+
+    padding: 10px 20px;
+
+    background: rgba(0,0,0,.75);
+
+    border: 1px solid #00ff88;
+
+    box-shadow:
+        0 0 15px #00ff88;
+
+}
+
+
+/* BLINK */
+
+.blink {
+
+    color: red !important;
+
+    border-color: red !important;
+
+    box-shadow:
+        0 0 15px red,
+        0 0 40px red !important;
+
+    text-shadow:
+        0 0 10px red;
+
+}
+
+
+/* BUTON */
+
+#start {
+
+    position: fixed;
+
+    left: 50%;
+    top: 50%;
+
+    transform: translate(-50%, -50%);
+
+    z-index: 20;
+
+    padding: 18px 30px;
+
+    background: #000;
+
+    color: #00ff88;
+
+    border: 1px solid #00ff88;
+
+    font-family: monospace;
+
+    font-size: 18px;
+
+    box-shadow:
+        0 0 20px #00ff88;
+
+}
+
+
+#start:active {
+
+    background: #00ff88;
+
+    color: #000;
+
+}
+
+
+/* GLITCH */
+
+.glitch {
+
+    animation:
+        glitch .08s linear 3;
+
+}
+
+
+@keyframes glitch {
+
+    0% {
+        transform: translate(0);
+    }
+
+    25% {
+        transform: translate(4px,-2px);
+    }
+
+    50% {
+        transform: translate(-4px,2px);
+    }
+
+    75% {
+        transform: translate(2px,3px);
+    }
+
+    100% {
+        transform: translate(0);
+    }
+
+}
+
+</style>
+
 </head>
+
 
 <body>
 
-<h1>KAMERA TESTİ</h1>
 
-<p id="result">
-Hazır.
-</p>
+<video
+    id="camera"
+    autoplay
+    playsinline>
+</video>
 
-<button onclick="openCamera()">
-    KAMERAYI AÇ
+
+<div id="overlay"></div>
+
+<div id="scanlines"></div>
+
+
+<div id="status">
+
+    SYSTEM: OFFLINE
+
+</div>
+
+
+<div id="eyeStatus">
+
+    CAMERA OFF
+
+</div>
+
+
+<button id="start"
+        onclick="startTest()">
+
+    START BLINK TEST
+
 </button>
 
-<video id="video" autoplay playsinline></video>
 
 <script>
 
-async function openCamera() {
 
-    const result =
-        document.getElementById("result");
+/* =========================
+   DEĞİŞKENLER
+========================= */
 
-    const video =
-        document.getElementById("video");
+const video =
+    document.getElementById("camera");
 
 
-    result.textContent =
-        "Kontrol ediliyor...\n\n" +
+const status =
+    document.getElementById("status");
 
-        "Sayfa: " +
-        location.protocol + "\n\n" +
 
-        "Kamera API: " +
-        (
-            navigator.mediaDevices
-            ? "VAR"
-            : "YOK"
+const eyeStatus =
+    document.getElementById("eyeStatus");
+
+
+const startButton =
+    document.getElementById("start");
+
+
+let cameraStream = null;
+
+let faceMesh = null;
+
+let processing = false;
+
+let eyesClosed = false;
+
+let blinkCount = 0;
+
+let closedSince = 0;
+
+
+/* =========================
+   MESAFE
+========================= */
+
+function distance(a, b) {
+
+    const x =
+        a.x - b.x;
+
+    const y =
+        a.y - b.y;
+
+    return Math.sqrt(
+        x * x +
+        y * y
+    );
+
+}
+
+
+/* =========================
+   GÖZ AÇIKLIK ORANI
+========================= */
+
+function eyeRatio(
+    top,
+    bottom,
+    left,
+    right,
+    top2,
+    bottom2
+) {
+
+    const vertical1 =
+        distance(top, bottom);
+
+    const vertical2 =
+        distance(top2, bottom2);
+
+    const horizontal =
+        distance(left, right);
+
+    return (
+        vertical1 +
+        vertical2
+    ) / (
+        2 * horizontal
+    );
+
+}
+
+
+/* =========================
+   BLINK ALGILA
+========================= */
+
+function checkBlink(landmarks) {
+
+
+    /*
+       SOL GÖZ
+
+       33  = dış köşe
+       133 = iç köşe
+       160 / 144
+       158 / 153
+    */
+
+    const leftEye =
+        eyeRatio(
+
+            landmarks[160],
+            landmarks[144],
+
+            landmarks[33],
+            landmarks[133],
+
+            landmarks[158],
+            landmarks[153]
+
         );
 
 
-    if (
-        !navigator.mediaDevices ||
-        !navigator.mediaDevices.getUserMedia
-    ) {
+    /*
+       SAĞ GÖZ
 
-        result.textContent +=
-            "\n\n❌ Kamera API kullanılamıyor.";
+       362 = iç köşe
+       263 = dış köşe
+       385 / 380
+       387 / 373
+    */
+
+    const rightEye =
+        eyeRatio(
+
+            landmarks[385],
+            landmarks[380],
+
+            landmarks[362],
+            landmarks[263],
+
+            landmarks[387],
+            landmarks[373]
+
+        );
+
+
+    const average =
+        (leftEye + rightEye) / 2;
+
+
+    /*
+       GÖZ AÇIK
+    */
+
+    if (average > 0.22) {
+
+        eyeStatus.innerText =
+            "EYES OPEN";
+
+        eyeStatus.classList.remove(
+            "blink"
+        );
+
+
+        /*
+           Önceden kapalıysa
+           ve şimdi açıldıysa
+           = BLINK
+        */
+
+        if (eyesClosed) {
+
+            const duration =
+                Date.now() -
+                closedSince;
+
+
+            /*
+               Çok uzun kapalı kalırsa
+               blink sayma.
+
+               Normal göz kırpma
+               yaklaşık kısa süreli.
+            */
+
+            if (
+                duration >= 80 &&
+                duration < 1200
+            ) {
+
+                blinkCount++;
+
+
+                eyeStatus.innerText =
+                    "BLINK DETECTED";
+
+
+                eyeStatus.classList.add(
+                    "blink"
+                );
+
+
+                document.body
+                    .classList.add(
+                        "glitch"
+                    );
+
+
+                setTimeout(() => {
+
+                    document.body
+                        .classList.remove(
+                            "glitch"
+                        );
+
+                }, 300);
+
+
+                status.innerText =
+                    "SYSTEM: ONLINE\n" +
+                    "BLINKS: " +
+                    blinkCount;
+
+            }
+
+
+            eyesClosed = false;
+
+        }
 
         return;
+
     }
 
 
-    result.textContent +=
-        "\n\n📷 Kamera izni isteniyor...";
+    /*
+       GÖZ KAPALI
+    */
 
+    if (average < 0.20) {
+
+        eyeStatus.innerText =
+            "EYES CLOSED";
+
+        eyeStatus.classList.add(
+            "blink"
+        );
+
+
+        if (!eyesClosed) {
+
+            eyesClosed = true;
+
+            closedSince =
+                Date.now();
+
+        }
+
+    }
+
+}
+
+
+/* =========================
+   MEDIAPIPE
+========================= */
+
+function setupFaceMesh() {
+
+    faceMesh =
+        new FaceMesh({
+
+            locateFile: (
+                file
+            ) => {
+
+                return (
+                    "https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/" +
+                    file
+                );
+
+            }
+
+        });
+
+
+    faceMesh.setOptions({
+
+        maxNumFaces: 1,
+
+        refineLandmarks: true,
+
+        minDetectionConfidence: 0.5,
+
+        minTrackingConfidence: 0.5
+
+    });
+
+
+    faceMesh.onResults(
+
+        results => {
+
+            if (
+                results.multiFaceLandmarks &&
+                results.multiFaceLandmarks.length > 0
+            ) {
+
+                status.innerText =
+                    "SYSTEM: ONLINE\n" +
+                    "FACE: DETECTED\n" +
+                    "BLINKS: " +
+                    blinkCount;
+
+
+                checkBlink(
+                    results
+                        .multiFaceLandmarks[0]
+                );
+
+            }
+
+            else {
+
+                status.innerText =
+                    "SYSTEM: ONLINE\n" +
+                    "FACE: NOT FOUND";
+
+                eyeStatus.innerText =
+                    "NO FACE";
+
+            }
+
+        }
+
+    );
+
+}
+
+
+/* =========================
+   KAMERA
+========================= */
+
+async function startCamera() {
 
     try {
 
-        const stream =
-            await navigator.mediaDevices.getUserMedia({
-                video: true,
-                audio: false
-            });
+        cameraStream =
+            await navigator
+                .mediaDevices
+                .getUserMedia({
+
+                    video: {
+
+                        facingMode:
+                            "user",
+
+                        width: {
+                            ideal: 1280
+                        },
+
+                        height: {
+                            ideal: 720
+                        }
+
+                    },
+
+                    audio: false
+
+                });
 
 
-        video.srcObject = stream;
+        video.srcObject =
+            cameraStream;
 
-        video.style.display = "block";
+
+        await video.play();
 
 
-        result.textContent =
-            "✅ KAMERA ÇALIŞIYOR!\n\n" +
-            "İzin başarıyla verildi.";
+        return true;
 
     }
 
     catch (error) {
 
-        result.textContent =
-            "❌ KAMERA AÇILAMADI\n\n" +
-            "Hata: " +
-            error.name +
-            "\n\n" +
-            "Mesaj: " +
-            error.message;
+        status.innerText =
+            "CAMERA ERROR:\n" +
+            error.name;
 
         console.error(error);
+
+        return false;
+
     }
+
+}
+
+
+/* =========================
+   FRAME DÖNGÜSÜ
+========================= */
+
+async function processCamera() {
+
+    if (
+        !faceMesh ||
+        video.readyState < 2
+    ) {
+
+        requestAnimationFrame(
+            processCamera
+        );
+
+        return;
+
+    }
+
+
+    if (!processing) {
+
+        processing = true;
+
+        try {
+
+            await faceMesh.send({
+                image: video
+            });
+
+        }
+
+        catch (error) {
+
+            console.error(error);
+
+        }
+
+        processing = false;
+
+    }
+
+
+    requestAnimationFrame(
+        processCamera
+    );
+
+}
+
+
+/* =========================
+   BAŞLAT
+========================= */
+
+async function startTest() {
+
+    startButton.style.display =
+        "none";
+
+
+    status.innerText =
+        "SYSTEM: STARTING...";
+
+
+    eyeStatus.innerText =
+        "REQUESTING CAMERA";
+
+
+    const cameraOK =
+        await startCamera();
+
+
+    if (!cameraOK) {
+
+        startButton.style.display =
+            "block";
+
+        eyeStatus.innerText =
+            "CAMERA FAILED";
+
+        return;
+
+    }
+
+
+    status.innerText =
+        "SYSTEM: LOADING FACE MODEL...";
+
+
+    setupFaceMesh();
+
+
+    await new Promise(
+        resolve =>
+            setTimeout(
+                resolve,
+                1000
+            )
+    );
+
+
+    status.innerText =
+        "SYSTEM: ONLINE";
+
+
+    eyeStatus.innerText =
+        "LOOK AT CAMERA";
+
+
+    processCamera();
+
 }
 
 </script>
 
 </body>
+
 </html>
