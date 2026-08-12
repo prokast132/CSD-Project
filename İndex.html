@@ -1,1 +1,134 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+    <title>Kamera Testi</title>
+
+    <style>
+        body {
+            background: black;
+            color: #00ff88;
+            font-family: monospace;
+            text-align: center;
+            padding: 20px;
+        }
+
+        button {
+            padding: 15px 25px;
+            margin: 20px;
+            background: black;
+            color: #00ff88;
+            border: 1px solid #00ff88;
+            font-family: monospace;
+            font-size: 18px;
+        }
+
+        video {
+            width: 100%;
+            max-width: 500px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        #result {
+            white-space: pre-wrap;
+            text-align: left;
+        }
+    </style>
+</head>
+
+<body>
+
+<h1>KAMERA TESTİ</h1>
+
+<p id="result">
+Hazır.
+</p>
+
+<button onclick="openCamera()">
+    KAMERAYI AÇ
+</button>
+
+<video id="video" autoplay playsinline></video>
+
+<script>
+
+async function openCamera() {
+
+    const result =
+        document.getElementById("result");
+
+    const video =
+        document.getElementById("video");
+
+
+    result.textContent =
+        "Kontrol ediliyor...\n\n" +
+
+        "Sayfa: " +
+        location.protocol + "\n\n" +
+
+        "Kamera API: " +
+        (
+            navigator.mediaDevices
+            ? "VAR"
+            : "YOK"
+        );
+
+
+    if (
+        !navigator.mediaDevices ||
+        !navigator.mediaDevices.getUserMedia
+    ) {
+
+        result.textContent +=
+            "\n\n❌ Kamera API kullanılamıyor.";
+
+        return;
+    }
+
+
+    result.textContent +=
+        "\n\n📷 Kamera izni isteniyor...";
+
+
+    try {
+
+        const stream =
+            await navigator.mediaDevices.getUserMedia({
+                video: true,
+                audio: false
+            });
+
+
+        video.srcObject = stream;
+
+        video.style.display = "block";
+
+
+        result.textContent =
+            "✅ KAMERA ÇALIŞIYOR!\n\n" +
+            "İzin başarıyla verildi.";
+
+    }
+
+    catch (error) {
+
+        result.textContent =
+            "❌ KAMERA AÇILAMADI\n\n" +
+            "Hata: " +
+            error.name +
+            "\n\n" +
+            "Mesaj: " +
+            error.message;
+
+        console.error(error);
+    }
+}
+
+</script>
+
+</body>
+</html>
